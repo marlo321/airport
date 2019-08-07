@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stops</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</head>
+<body>
+<h1>Stops</h1>
+
+<div id="create-stop-modal" class="modal">
+    <div class="modal-content">
+        <select data-id="" id="departure-airport-select" >
+        </select>
+        <select id="arrive-airport-select">
+        </select>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" id="stop-create-button" class="modal-close waves-effect waves-green btn-flat">Create</a>
+    </div>
+</div>
+
+<button id="request-modal-button" data-target="create-stop-modal" class="btn modal-trigger">Create stop</button>
+
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Departure</th>
+            <th>Arrive</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+
+    <tbody id = "stops">
+    </tbody>
+</table>
+
+<script>
+    $(document).ready(function () {
+        let $modal = $('.modal');
+        let $select = $('select');
+
+        let $airportDepartureNameSelect = $('#departure-airport-select');
+        let $airportArriveNameSelect = $('#arrive-airport-select');
+
+        let tableBody = $('#stops');
+
+        let airportDepartureId;
+        let airportArriveId;
+
+        $('#request-modal-button').click(()=>{
+            requestAirport();
+        });
+
+        $('#stop-create-button').click( ()=> {
+            let stopRequest = {
+                fromId: $airportDepartureNameSelect.val(),
+                toId: $airportArriveNameSelect.val()
+            };
+
+            let id = $airportDepartureNameSelect.attr('data-id');
+
+            console.log(id);
+            if (id){
+                $.ajax({
+                    url: `http://localhost:8080/stop?id=${id}`,
+                    type: 'put',
+                    contentType: 'application/json',
+                    data: JSON.stringify(stopRequest),
+                    success: function () {
+                        getStops();
+                    },
+                    error: console.log
+                });
+            }
+            else {
+                $.ajax({
+                    url: 'http://localhost:8080/stop',
+                    type: 'post',
+                    contentType: 'application/json',
+                    data: JSON.stringify(stopRequest),
+                    success: function () {
+                        getStops()
+                    },
+                    error: console.log
+                });
+            }
+
+            $modal.modal('close');
+            if ($modal.modal('close')){
+                $airportDepartureNameSelect.val('');
+                $airportDepartureNameSelect.attr('data-id', '');
+                $airportArriveNameSelect.val('');
+                airportArriveId = undefined;
+                airportDepartureId = undefined;
+            }
+        });
+
+        let getStops = () => {
+            tableBody.html('');
+            $.ajax({
+                url: 'http://localhost:8080/stop',
+                type: 'get',
+                success: function (response) {
+                    console.log(response);
+                    for (let stop of response) {
+                        appendStopToTable(stop);
+                    }
+                    actionOnDeleteButtons();
+                    actionOnUpdateButtons();
+                }
+            });
+        };
+
+        let appendStopToTable =(stop) =>{
+            tableBody.append(`
+                <tr>
+                <td>${stop.id}</td>
+                <td class = "airport-departure-id"  data-id ="${stop.fromResponse.id}" data-airport-id = "${stop.id}">${stop.fromResponse.name}</td>
+                <td class = "airport-arrive-id" data-id ="${stop.toResponse.id}">${stop.toResponse.name}</td>
+                <td>
+                    <button data-id ="${stop.id}" class="delete-btn btn">Delete</button>
+                    <button data-id ="${stop.id}" data-departure-id="${stop.fromResponse.id}" class="update-btn btn">Update</button>
+                </td>
+            </tr>
+            `)
+        };
+
+        let actionOnDeleteButtons = () => {
+            $('.delete-btn').click((e) => {
+                $.ajax({
+                    url: `http://localhost:8080/stop?id=${$(e.target).attr('data-id')}`,
+                    type: 'delete',
+                    success: () => {
+                        $(e.target.parentElement.parentElement).hide();
+                    }
+                });
+            })
+        };
+
+        let actionOnUpdateButtons = ()=>{
+            $('.update-btn').click((e)=>{
+                let $btn = $(e.target);
+                let id = $btn.attr('data-id');
+                airportDepartureId = $btn.parent().siblings('.airport-departure-id').attr('data-id');
+                airportArriveId = $btn.parent().siblings('.airport-arrive-id').attr('data-id');
+                $airportDepartureNameSelect.attr('data-id', id);
+                requestAirport();
+                $modal.modal('open');
+            })
+        };
+
+        let requestAirport = () =>{
+            $.ajax({
+                url: 'http://localhost:8080/airport',
+                type: 'get',
+                success: activateSelect,
+                error:console.log()
+            });
+        };
+
+        let activateSelect = (airports) => {
+            $airportArriveNameSelect.html('');
+            $airportDepartureNameSelect.html('');
+            if (airportDepartureId === undefined && airportArriveId === undefined){
+                $airportDepartureNameSelect.append(`<option id="data-country-id" value="" disabled selected>Take departure</option>`);
+                $airportArriveNameSelect.append(`<option id="data-country-id" value="" disabled selected>Take arrive</option>`);
+            }
+            appendAirportsToSelect(airports);
+            $select.formSelect();
+        };
+
+        let appendAirportsToSelect = (airports) => {
+            for (const airport of airports) {
+                appendAirportToSelect(airport);
+            }
+        };
+
+        let appendAirportToSelect = (airport) => {
+            if (airportDepartureId == airport.id) {
+                $airportDepartureNameSelect.append(`<option id="data-country-id" value="${airport.id}" selected>${airport.name}</option>`);
+            }
+            else {
+                $airportDepartureNameSelect.append(`<option id="data-country-id" value="${airport.id}">${airport.name}</option>`);
+            }
+
+            if (airportArriveId == airport.id) {
+                $airportArriveNameSelect.append(`<option id="data-country-id" value="${airport.id}" selected>${airport.name}</option>`);
+            }
+            else {
+                $airportArriveNameSelect.append(`<option id="data-country-id" value="${airport.id}">${airport.name}</option>`);
+            }
+        };
+
+        getStops();
+        $modal.modal({});
+    });
+</script>
+
+
+</body>
+</html>

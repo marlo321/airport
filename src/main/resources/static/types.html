@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Type</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</head>
+<body>
+<h1>Types</h1>
+
+<div id="create-type-modal" class="modal">
+    <div class="modal-content">
+        <input data-id="" id="type-name-input" type="text" placeholder="Name">
+    </div>
+    <div class="modal-footer">
+        <a href="#!" id="type-create-button" class="modal-close waves-effect waves-green btn-flat">Create</a>
+    </div>
+</div>
+
+<button id="request-modal-button" data-target="create-type-modal" class="btn modal-trigger">Create types</button>
+
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Types</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+
+    <tbody id = "type">
+    </tbody>
+</table>
+
+<script>
+    $(document).ready(function () {
+        let $modal = $('.modal');
+        let tableBody = $('#type');
+
+        let $typeNameInput = $('#type-name-input');
+
+        $modal.modal();
+
+        $('#type-create-button').click(()=> {
+            let typeRequest = {
+                typeOfClass: $typeNameInput.val()
+            };
+            console.log($typeNameInput.val());
+            let id = $typeNameInput.attr('data-id');
+
+            if (id){
+                $.ajax({
+                    url: `http://localhost:8080/type?id=${id}`,
+                    type: 'put',
+                    contentType: 'application/json',
+                    data: JSON.stringify(typeRequest),
+                    success: function () {
+                        getType();
+                    },
+                    error: logError
+                });
+            }
+            else {
+                $.ajax({
+                    url: 'http://localhost:8080/type',
+                    type: 'post',
+                    contentType: 'application/json',
+                    data: JSON.stringify(typeRequest),
+                    success: function () {
+                        getType();
+                    },
+                    error: logError
+                });
+            }
+            function logError(err) {
+                console.log(err)
+            }
+            $modal.modal('close');
+            $typeNameInput.val('');
+            $typeNameInput.attr('data-id', '');
+        });
+
+        let getType = () =>{
+            tableBody.html('');
+            $.ajax({
+                url: 'http://localhost:8080/type',
+                type: 'get',
+                success: function (response) {
+                    for (let type of response){
+                        appendTypeToTable(type);
+                    }
+                    actionOnDeleteButtons();
+                    actionOnUpdateButtons();
+                }
+            });
+        };
+
+        let appendTypeToTable = (type) => {
+            tableBody.append(`
+            <tr>
+                <td>${type.id}</td>
+                <td class = "type-name">${type.typeOfClass}</td>
+                <td>
+                    <button data-id ="${type.id}" class="delete-btn btn">Delete</button>
+                    <button data-id ="${type.id}" class="update-btn btn">Update</button>
+                </td>
+            </tr>
+            `);
+        };
+
+        let actionOnDeleteButtons = ()=>{
+            $('.delete-btn').click((e)=>{
+                $.ajax({
+                    url: `http://localhost:8080/type?id=${$(e.target).attr('data-id')}`,
+                    type: 'delete',
+                    success: () => {
+                        console.log('deleted');
+                        $(e.target.parentElement.parentElement).hide();
+                    }
+                });
+            })
+        };
+
+        let actionOnUpdateButtons = ()=>{
+            $('.update-btn').click((e)=>{
+                let $btn = $(e.target);
+                let id = $btn.attr('data-id');
+                $typeNameInput.val($btn.parent().siblings('.type-name').html());
+                $typeNameInput.attr('data-id', id);
+                $modal.modal('open');
+            })
+        };
+
+        getType();
+    });
+</script>
+</body>
+</html>

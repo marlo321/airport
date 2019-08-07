@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tickets</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</head>
+<h1>Ticket</h1>
+<body>
+
+
+<div id="create-user-ticket-modal" class="modal">
+    <div class="modal-content">
+        <input data-id="" id="user-name-input" type="text" placeholder="Name">
+        <input data-id="" id="user-surname-input" type="text" placeholder="Surname">
+        <input data-id="" id="user-email-input" type="text" placeholder="email">
+    </div>
+    <div class="modal-footer">
+        <a href="#!" id="ticket-create-button" class="modal-close waves-effect waves-green btn-flat">Buy</a>
+    </div>
+</div>
+
+
+<table>
+    <thead>
+    <tr>
+        <th>Price</th>
+        <th>Flight number race</th>
+        <th>Class</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+
+    <tbody id = "ticket">
+    </tbody>
+</table>
+    <script>
+        $(document).ready(function() {
+            const searchParameter = new URLSearchParams(window.location.search);
+            let tableBody = $('#ticket');
+            let $modal = $('.modal');
+
+            let getTickets = () => {
+                $.ajax({
+                    url: `http://localhost:8080//ticket/byId?id=${searchParameter.get('id')}`,
+                    type: 'get',
+                    success: function (response) {
+                        for (let ticket of response){
+                            appendTicketToTable(ticket);
+                        }
+                        actionOnBuyTicket();
+                    },
+                    error: console.log
+                });
+            };
+
+            let appendTicketToTable = (ticket) =>{
+                if (ticket.userResponse === null) {
+                    tableBody.append(`
+                        <tr>
+                            <td class = "ticket-price">${ticket.price}</td>
+                            <td class = "flight-id" data-id="${ticket.flightResponse.id}">${ticket.flightResponse.id}</td>
+                            <td class = "type-id" data-id="${ticket.typeResponse.id}">${ticket.typeResponse.typeOfClass}</td>
+                            <td>
+                                <button data-id ="${ticket.id}" class="buy-btn btn" >Buy</button>
+                            </td>
+                        </tr>
+                    `)
+                }
+                else{
+                    tableBody.append(`
+                        <tr>
+                            <td class = "ticket-price">${ticket.price}</td>
+                            <td class = "flight-id" data-id="${ticket.flightResponse.id}">${ticket.flightResponse.id}</td>
+                            <td class = "type-id" data-id="${ticket.typeResponse.id}">${ticket.typeResponse.typeOfClass}</td>
+                            <td>
+                                <button data-id ="${ticket.id}" class="buy-btn btn disabled" >Buy</button>
+                            </td>
+                        </tr>
+                    `)
+                }
+            };
+
+            let actionOnBuyTicket = () => {
+                $('.buy-btn').click((e)=>{
+                    let $btn = $(e.target);
+                    $modal.modal('open');
+                });
+            };
+            getTickets();
+
+            $modal.modal({});
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Schedule</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</head>
+<body>
+<h1>Flights</h1>
+<!--<div class="modal-footer">-->
+<!--    <a href="#!" id="airport-create-button" class="modal-close waves-effect waves-green btn-flat">Flights</a>-->
+<!--</div>-->
+
+</table>
+<ul class="collapsible" id="flight-collapsible">
+
+</ul>
+<script>
+    $(document).ready(function(){
+        let arr = [];
+
+        let tableBody = $('#flight-collapsible');
+
+        let getAirport = () => {
+            tableBody.html('');
+            $.ajax({
+                url: 'http://localhost:8080/flight',
+                type: 'get',
+                success: function (response) {
+                    console.log(response);
+                    for (let flights of response) {
+                        appendFlightToTable(flights);
+                        arr = [];
+                    }
+                    $('.collapsible').collapsible();
+                    actionOnBuyTicket();
+                }
+            });
+        };
+
+        let appendFlightToTable = (flights)=> {
+            for (let stop of flights.stopResponseList) {
+                arr.push(stop.fromResponse.name);
+                arr.push("-");
+                arr.push(stop.toResponse.name);
+            }
+            tableBody.append(`
+                    <li>
+                         <div class="collapsible-header">${flights.startAirportResponse.name} - ${flights.finishAirportResponse.name}</div>
+                         <div class="collapsible-body">
+                             <span id="ticket-id"> </span>
+                                 <td>
+                                    <button data-id ="${flights.id}" class="buy-btn btn">Buy ticket</button>
+                                </td>
+                          </div>
+                    </li>
+            `);
+        };
+
+        let actionOnBuyTicket = () => {
+            $('.buy-btn').click((e)=>{
+                let $btn = $(e.target);
+                let id = $btn.attr('data-id');
+                window.location.href = `http://localhost:8080//ticketShop?id=${id}`;
+            });
+        };
+
+        getAirport();
+    });
+
+
+</script>
+
+</body>
+</html>

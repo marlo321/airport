@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Flights</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</head>
+<body>
+<h1>Flights</h1>
+
+
+<div id="create-flight-modal" class="modal">
+    <div class="modal-content">
+        <select data-id="" id="departure-airport-select" >
+        </select>
+        <select id="arrive-airport-select">
+        </select>
+        <select id="status-select">
+        </select>
+        <select multiple id = "stops-select">
+        </select>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" id="flight-create-button" class="modal-close waves-effect waves-green btn-flat">Create</a>
+    </div>
+</div>
+
+<button id="request-modal-button" data-target="create-flight-modal" class="btn modal-trigger">Create flight</button>
+
+<table>
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>Departure airport</th>
+        <th>Arrive airport</th>
+        <th>Status</th>
+        <th>Stops</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+
+    <tbody id = "flight">
+    </tbody>
+</table>
+
+<script>
+    $(document).ready(function () {
+        let $modal = $('.modal');
+        let $select = $('select');
+
+        let tableBody = $('#flight');
+
+        let $airportDepartureNameSelect = $('#departure-airport-select');
+        let $airportArriveNameSelect = $('#arrive-airport-select');
+        let $statusSelect = $('#status-select');
+        let $stopsSelect = $('#stops-select');
+
+        let arr = [];
+        let arrWithArriveId = [];
+        let arrWithDepartureId = [];
+
+        let airportDepartureId;
+        let airportArriveId;
+        let statusId;
+
+        $('#request-modal-button').click(()=>{
+            requestAllSelects();
+        });
+
+        $('#flight-create-button').click( ()=> {
+            let flightRequest = {
+                startAirportId: $airportDepartureNameSelect.val(),
+                finishAirportId: $airportArriveNameSelect.val(),
+                statusId:$statusSelect.val(),
+                stopIds:$stopsSelect.val()
+            };
+
+            let id = $airportDepartureNameSelect.attr('data-id');
+
+            if (id){
+                $.ajax({
+                    url: `http://localhost:8080/flight?id=${id}`,
+                    type: 'put',
+                    contentType: 'application/json',
+                    data: JSON.stringify(flightRequest),
+                    success: function () {
+                        getFlights();
+                    },
+                    error: console.log
+                });
+            }
+            else {
+                $.ajax({
+                    url: 'http://localhost:8080/flight',
+                    type: 'post',
+                    contentType: 'application/json',
+                    data: JSON.stringify(flightRequest),
+                    success: function () {
+                        getFlights()
+                    },
+                    error: console.log
+                });
+            }
+
+            $modal.modal('close');
+            if ($modal.modal('close')){
+                $airportDepartureNameSelect.val('');
+                $airportDepartureNameSelect.attr('data-id', '');
+                $airportArriveNameSelect.val('');
+                $statusSelect.val('');
+                $stopsSelect.val('');
+                airportArriveId = undefined;
+                airportDepartureId = undefined;
+                statusId = undefined;
+                arrWithArriveId = [];
+                arrWithDepartureId = [];
+            }
+        });
+
+        let getFlights = () => {
+            tableBody.html('');
+            $.ajax({
+                url: 'http://localhost:8080/flight',
+                type: 'get',
+                success: function (response) {
+                    console.log(response);
+                    for (let flights of response) {
+                        appendFlightToTable(flights);
+                        arrWithArriveId = [];
+                        arrWithDepartureId = [];
+                        arr = [];
+                    }
+                    actionOnDeleteButtons();
+                    actionOnUpdateButtons();
+                }
+            });
+        };
+
+        let appendFlightToTable = (flights)=>{
+            for (let stop of flights.stopResponseList) {
+                arr.push(stop.fromResponse.name);
+                arr.push("-");
+                arr.push(stop.toResponse.name);
+                arrWithDepartureId.push(stop.fromResponse.id);
+                arrWithArriveId.push(stop.toResponse.id);
+            }
+            tableBody.append(`
+                <tr>
+                    <td>${flights.id}</td>
+                    <td class = "airport-departure-id"  data-id ="${flights.startAirportResponse.id}" data-airport-id = "${flights.id}">${flights.startAirportResponse.name}</td>
+                    <td class = "airport-arrive-id" data-id ="${flights.finishAirportResponse.id}">${flights.finishAirportResponse.name}</td>
+                    <td class = "status-id" data-id ="${flights.statusResponse.id}">${flights.statusResponse.name}</td>
+                    <td class = "stop-id" data-departure-id="${arrWithDepartureId}" data-arrive-id = "${arrWithArriveId}">${arr}</td>
+                    <td>
+                        <button data-id ="${flights.id}" class="delete-btn btn">Delete</button>
+                        <button data-id ="${flights.id}" class="update-btn btn">Update</button>
+                    </td>
+                </tr>
+            `);
+        };
+
+        let actionOnDeleteButtons = () => {
+            $('.delete-btn').click((e) => {
+                $.ajax({
+                    url: `http://localhost:8080/flight?id=${$(e.target).attr('data-id')}`,
+                    type: 'delete',
+                    success: () => {
+                        $(e.target.parentElement.parentElement).hide();
+                    }
+                });
+            })
+        };
+
+        let actionOnUpdateButtons = ()=>{
+            $('.update-btn').click((e)=>{
+                let $btn = $(e.target);
+                let id = $btn.attr('data-id');
+                airportDepartureId = $btn.parent().siblings('.airport-departure-id').attr('data-id');
+                airportArriveId = $btn.parent().siblings('.airport-arrive-id').attr('data-id');
+                statusId = $btn.parent().siblings('.status-id').attr('data-id');
+                arrWithDepartureId = $btn.parent().siblings('.stop-id').attr('data-departure-id').split(",");
+                arrWithArriveId = $btn.parent().siblings('.stop-id').attr('data-arrive-id').split(",");
+                $airportDepartureNameSelect.attr('data-id', id);
+                requestAllSelects();
+                $modal.modal('open');
+            })
+        };
+
+
+        let requestAllSelects = () =>{
+            $.ajax({
+                url: 'http://localhost:8080/airport',
+                type: 'get',
+                success: activateAirportSelect,
+                error:console.log()
+            });
+
+            $.ajax({
+                url: 'http://localhost:8080/status',
+                type: 'get',
+                success: activateStatusSelect,
+                error:console.log()
+            });
+
+            $.ajax({
+                url: 'http://localhost:8080/stop',
+                type: 'get',
+                success: activateStopSelect,
+                error:console.log()
+            });
+        };
+
+        let activateStopSelect = (stops) =>{
+            $stopsSelect.html('');
+            // if ((arrWithArriveId.length == 0) && (arrWithDepartureId == 0)){
+            //     $stopsSelect.append(`<option id="data-stop-id" value="" disabled selected>Take stop</option>`)
+            // }
+            appendStopsToSelect(stops);
+            $select.formSelect();
+        };
+        let appendStopsToSelect = (stops) => {
+            for (const stop of stops) {
+                appendStopToSelect(stop);
+            }
+            arrWithArriveId = [];
+            arrWithDepartureId = [];
+        };
+
+        let appendStopToSelect = (stop) =>{
+            // example for me, how to filter my array
+            // arrWithDepartureId = arrWithDepartureId.filter(item => item !== undefined);
+            let countForGrammarlyOutput = 0;
+            let stopId;
+            let departureName;
+            let arriveName;
+            for (let i = 0; i < arrWithDepartureId.length; i ++){
+                    if (arrWithDepartureId[i] == stop.fromResponse.id && arrWithArriveId[i] == stop.toResponse.id) {
+                        countForGrammarlyOutput++;
+                        departureName = stop.fromResponse.name;
+                        arriveName = stop.toResponse.name;
+                        stopId = stop.id;
+                    }
+            }
+            if (countForGrammarlyOutput == 1) {
+                $stopsSelect.append(`<option id="data-stop-id" value="${stopId}" selected>${departureName}-${arriveName}</option>`)
+            } else if (countForGrammarlyOutput == 0) {
+                $stopsSelect.append(`<option id="data-stop-id" value="${stop.id}">${stop.fromResponse.name}-${stop.toResponse.name}</option>`)
+            }
+        };
+
+
+        let activateStatusSelect = (statuses) => {
+            $statusSelect.html('');
+            if (statusId === undefined){
+                $statusSelect.append(`<option id="data-status-id" value="" disabled selected>Take status</option>`)
+            }
+            appendStatusesToSelect(statuses);
+            $select.formSelect();
+        };
+        let appendStatusesToSelect = (statuses) => {
+            for (const status of statuses) {
+                appendStatusToSelect(status);
+            }
+        };
+        let appendStatusToSelect = (status) => {
+            if (statusId == status.id) {
+                $statusSelect.append(`<option id="data-status-id" value="${status.id}" selected>${status.name}</option>`);
+            }
+            else {
+                $statusSelect.append(`<option id="data-status-id" value="${status.id}">${status.name}</option>`);
+            }
+        };
+
+
+
+        let activateAirportSelect = (airports) => {
+            $airportArriveNameSelect.html('');
+            $airportDepartureNameSelect.html('');
+            if (airportDepartureId === undefined && airportArriveId === undefined ){
+                $airportDepartureNameSelect.append(`<option id="data-country-id" value="" disabled selected>Take departure</option>`);
+                $airportArriveNameSelect.append(`<option id="data-country-id" value="" disabled selected>Take arrive</option>`);
+            }
+            appendAirportsToSelect(airports);
+            $select.formSelect();
+        };
+        let appendAirportsToSelect = (airports) => {
+            for (const airport of airports) {
+                appendAirportToSelect(airport);
+            }
+        };
+        let appendAirportToSelect = (airport) => {
+            if (airportDepartureId == airport.id) {
+                $airportDepartureNameSelect.append(`<option id="data-country-id" value="${airport.id}" selected>${airport.name}</option>`);
+            }
+            else {
+                $airportDepartureNameSelect.append(`<option id="data-country-id" value="${airport.id}">${airport.name}</option>`);
+            }
+
+            if (airportArriveId == airport.id) {
+                $airportArriveNameSelect.append(`<option id="data-country-id" value="${airport.id}" selected>${airport.name}</option>`);
+            }
+            else {
+                $airportArriveNameSelect.append(`<option id="data-country-id" value="${airport.id}">${airport.name}</option>`);
+            }
+        };
+        getFlights();
+        $modal.modal({});
+    });
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tickets</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</head>
+<body>
+<h1>Tickets</h1>
+
+<div id="create-ticket-modal" class="modal">
+    <div class="modal-content">
+        <input data-id="" id="ticket-price-input" type="text" placeholder="Price">
+        <select id="flight-select">
+        </select>
+        <select id="type-select">
+        </select>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" id="ticket-create-button" class="modal-close waves-effect waves-green btn-flat">Create</a>
+    </div>
+</div>
+
+<button id="request-modal-button" data-target="create-ticket-modal" class="btn modal-trigger">Create ticket</button>
+
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Price</th>
+            <th>Flight number race</th>
+            <th>Class</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+
+    <tbody id = "ticket">
+    </tbody>
+</table>
+
+<script>
+    $(document).ready(function() {
+        let $modal = $('.modal');
+        let $select = $('select');
+        let tableBody = $('#ticket');
+
+        let $ticketPriceInput = $('#ticket-price-input');
+        let $flightSelect = $('#flight-select');
+        let $typeSelect = $('#type-select');
+
+        let flightId;
+        let typeId;
+
+        $('#request-modal-button').click(()=>{
+            getFlightAndTypeSelect();
+        });
+
+        $('#ticket-create-button').click( ()=> {
+            let ticketRequest = {
+                price: $ticketPriceInput.val(),
+                flightId: $flightSelect.val(),
+                typeId: $typeSelect.val(),
+            };
+
+            let id = $ticketPriceInput.attr('data-id');
+            console.log(id);
+
+            if (id){
+                $.ajax({
+                    url: `http://localhost:8080/ticket?id=${id}`,
+                    type: 'put',
+                    contentType: 'application/json',
+                    data: JSON.stringify(ticketRequest),
+                    success: function () {
+                        getTicket();
+                    },
+                    error: console.log
+                });
+            }
+
+            else {
+                $.ajax({
+                    url: 'http://localhost:8080/ticket',
+                    type: 'post',
+                    contentType: 'application/json',
+                    data: JSON.stringify(ticketRequest),
+                    success: function () {
+                        getTicket();
+                    },
+                    error: console.log
+                });
+            }
+
+            $modal.modal('close');
+            if ($modal.modal('close')){
+                $ticketPriceInput.val('');
+                $ticketPriceInput.attr('data-id', '');
+                $flightSelect.val('');
+                flightId = undefined;
+                typeId = undefined;
+            }
+        });
+
+
+
+        let getTicket = () =>{
+            tableBody.html('');
+            $.ajax({
+                url: 'http://localhost:8080/ticket',
+                type: 'get',
+                success: function (response) {
+                    for (let ticket of response){
+                        appendTicketToTable(ticket);
+                    }
+                    actionOnDeleteButtons();
+                    actionOnUpdateButtons();
+                }
+            });
+        };
+
+        let actionOnDeleteButtons = ()=>{
+            $('.delete-btn').click((e)=>{
+                $.ajax({
+                    url: `http://localhost:8080/ticket?id=${$(e.target).attr('data-id')}`,
+                    type: 'delete',
+                    success: () => {
+                        console.log('deleted');
+                        $(e.target.parentElement.parentElement).hide();
+                    }
+                });
+            })
+        };
+
+        let actionOnUpdateButtons = () =>{
+            $('.update-btn').click((e)=>{
+                let $btn = $(e.target);
+                let id = $btn.attr('data-id');
+                $ticketPriceInput.val($btn.parent().siblings('.ticket-price').html());
+                $flightSelect.val($btn.parent().siblings('.flight-id').html());
+                $ticketPriceInput.attr('data-id', id);
+                flightId = $btn.parent().siblings('.flight-id').attr('data-id');
+                typeId = $btn.parent().siblings('.type-id').attr('data-id');
+                getFlightAndTypeSelect();
+                $modal.modal('open');
+            })
+        };
+
+        let getFlightAndTypeSelect = () => {
+            $.ajax({
+                url: 'http://localhost:8080/flight',
+                type: 'get',
+                success: activateFlightsSelect,
+                error:console.log()
+            });
+
+            $.ajax({
+                url: 'http://localhost:8080/type',
+                type: 'get',
+                success: activateTypesSelect,
+                error:console.log()
+            });
+        };
+
+        let activateTypesSelect = (types) =>{
+            $typeSelect.html('');
+            if (typeId === undefined){
+                $typeSelect.append(`<option id="data-type-id" value="" disabled selected>Take class</option>`)
+            }
+            appendTypesToSelect(types);
+            $select.formSelect();
+        };
+
+        let appendTypesToSelect = (types) =>{
+            for (const type of types) {
+                appendTypeToSelect(type);
+            }
+        };
+
+        let appendTypeToSelect = (type) =>{
+            if (typeId == type.id){
+                $typeSelect.append(`<option id="data-type-id" value="${type.id}" selected>${type.typeOfClass}</option>`)
+            } else {
+                $typeSelect.append(`<option id="data-type-id" value="${type.id}">${type.typeOfClass}</option>`)
+            }
+        };
+
+        let activateFlightsSelect = (flights) =>{
+            $flightSelect.html('');
+            if (flightId === undefined){
+                $flightSelect.append(`<option id="data-flight-id" value="" disabled selected>Take flight</option>`)
+            }
+            appendFlightsToSelect(flights);
+            $select.formSelect();
+        };
+
+        let appendFlightsToSelect = (flights) =>{
+            for (const flight of flights) {
+                appendFlightToSelect(flight);
+            }
+        };
+
+        let appendFlightToSelect = (flight) =>{
+            if (flightId == flight.id){
+                $flightSelect.append(`<option id="data-flight-id" value="${flight.id}" selected>${flight.id}</option>`)
+            } else {
+                $flightSelect.append(`<option id="data-flight-id" value="${flight.id}">${flight.id}</option>`)
+            }
+        };
+
+        let appendTicketToTable = (ticket) =>{
+            tableBody.append(`
+                <tr>
+                    <td>${ticket.id}</td>
+                    <td class = "ticket-price">${ticket.price}</td>
+                    <td class = "flight-id" data-id="${ticket.flightResponse.id}">${ticket.flightResponse.id}</td>
+                    <td class = "type-id" data-id="${ticket.typeResponse.id}">${ticket.typeResponse.typeOfClass}</td>
+                    <td>
+                        <button data-id ="${ticket.id}" class="delete-btn btn">Delete</button>
+                        <button data-id ="${ticket.id}" class="update-btn btn">Update</button>
+                    </td>
+                </tr>
+            `)
+        };
+        getTicket();
+        $modal.modal();
+    });
+</script>
+</body>
+</html>

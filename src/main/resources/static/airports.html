@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Airport</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</head>
+<body>
+
+<h1>Airport</h1>
+<div id="create-airport-modal" class="modal">
+    <div class="modal-content">
+        <input data-id="" id="airport-name-input" type="text" placeholder="Airport name">
+        <select id="address-select" >
+        </select>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" id="airport-create-button" class="modal-close waves-effect waves-green btn-flat">Create</a>
+    </div>
+</div>
+
+<button id="request-modal-button" data-target="create-airport-modal" class="btn modal-trigger">Create airport</button>
+
+<table>
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Address</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+
+    <tbody id = "airports">
+    </tbody>
+</table>
+
+
+<script>
+    $(document).ready(function() {
+        let $modal = $('.modal');
+        let $select = $('select');
+
+        let tableBody = $('#airports');
+        let $addressSelect = $('#address-select');
+
+        let $airportNameInput = $('#airport-name-input');
+
+        let addressId;
+
+        $('#request-modal-button').click(()=>{
+            requestAddress();
+        });
+
+        $('#airport-create-button').click( ()=> {
+            let airportRequest = {
+                name: $airportNameInput.val(),
+                addressId: $addressSelect.val()
+            };
+
+            let id = $airportNameInput.attr('data-id');
+
+            if (id){
+                $.ajax({
+                    url: `http://localhost:8080/airport?id=${id}`,
+                    type: 'put',
+                    contentType: 'application/json',
+                    data: JSON.stringify(airportRequest),
+                    success: function () {
+                        getAirport()
+                    },
+                    error: console.log
+                });
+            }
+            else {
+                $.ajax({
+                    url: 'http://localhost:8080/airport',
+                    type: 'post',
+                    contentType: 'application/json',
+                    data: JSON.stringify(airportRequest),
+                    success: function () {
+                        getAirport()
+                    },
+                    error: console.log
+                });
+            }
+
+            $modal.modal('close');
+            if ($modal.modal('close')){
+                $airportNameInput.val('');
+                $airportNameInput.attr('data-id', '');
+                $addressSelect.val('');
+                addressId = undefined;
+            }
+        });
+
+
+        let getAirport = () => {
+            tableBody.html('');
+            $.ajax({
+                url: 'http://localhost:8080/airport',
+                type: 'get',
+                success: function (response) {
+                    console.log(response);
+                    for (let airport of response) {
+                        appendAirportToTable(airport);
+                    }
+                    actionOnDeleteButtons();
+                    actionOnUpdateButtons();
+                },
+                error:console.log
+            });
+        };
+
+        $('#request-modal-button').click(()=>{
+            requestAddress();
+        });
+
+        let requestAddress = () =>{
+            $.ajax({
+                url: 'http://localhost:8080/address',
+                type: 'get',
+                success: activateSelect,
+                error:console.log()
+            });
+        };
+
+        let activateSelect = (addresses) => {
+            $addressSelect.html('');
+            if (addressId === undefined){
+                $addressSelect.append(`<option id="data-country-id" value="" disabled selected>Take address</option>`);
+            }
+            appendAddressesToSelect(addresses);
+            $select.formSelect();
+        };
+
+        let appendAddressesToSelect = (addresses) => {
+            for (const address of addresses) {
+                appendAddressToSelect(address);
+            }
+        };
+
+        let appendAddressToSelect = (address) => {
+            console.log(addressId);
+            if (addressId == address.id) {
+                $addressSelect.append(`<option id="data-country-id" value="${address.id}" selected>${address.name}</option>`);
+            }
+            else {
+                $addressSelect.append(`<option id="data-country-id" value="${address.id}">${address.name}</option>`);
+            }
+        };
+
+        let appendAirportToTable = (airport) =>{
+            tableBody.append(`
+            <tr>
+                <td>${airport.id}</td>
+                <td class = "airport-name">${airport.name}</td>
+                <td class = "address-id" data-id ="${airport.addressResponse.id}">${airport.addressResponse.name}, ${airport.addressResponse.number}, ${airport.addressResponse.cityResponse.name}, ${airport.addressResponse.cityResponse.countryResponse.name}</td>
+                <td>
+                    <button data-id ="${airport.id}" class="delete-btn btn">Delete</button>
+                    <button data-id ="${airport.id}" data-address-id="${airport.addressResponse.id}" class="update-btn btn">Update</button>
+                </td>
+            </tr>
+        `)
+        };
+
+        let actionOnDeleteButtons = () => {
+            $('.delete-btn').click((e) => {
+                $.ajax({
+                    url: `http://localhost:8080/airport?id=${$(e.target).attr('data-id')}`,
+                    type: 'delete',
+                    success: () => {
+                        $(e.target.parentElement.parentElement).hide();
+                    }
+                });
+            })
+        };
+
+        let actionOnUpdateButtons = ()=>{
+            $('.update-btn').click((e)=>{
+                let $btn = $(e.target);
+                let id = $btn.attr('data-id');
+                console.log(id);
+                $airportNameInput.val($btn.parent().siblings('.airport-name').html());
+                addressId = $btn.parent().siblings('.address-id').attr('data-id');
+                $airportNameInput.attr('data-id', id);
+                requestAddress();
+                $modal.modal('open');
+            })
+        };
+
+        getAirport();
+
+        $modal.modal({});
+    });
+</script>
+</body>
+</html>

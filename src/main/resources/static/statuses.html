@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Status</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</head>
+<body>
+<h1>Status</h1>
+
+<div id="create-status-modal" class="modal">
+    <div class="modal-content">
+        <input data-id="" id="status-name-input" type="text" placeholder="Status name">
+    </div>
+    <div class="modal-footer">
+        <a href="#!" id="status-create-button" class="modal-close waves-effect waves-green btn-flat">Create</a>
+    </div>
+</div>
+
+<button id="request-modal-button" data-target="create-status-modal" class="btn modal-trigger">Create airport</button>
+
+<table>
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+
+    <tbody id = "statuses">
+    </tbody>
+</table>
+<script>
+    $(document).ready(function() {
+        let $modal = $('.modal');
+
+        let tableBody = $('#statuses');
+
+        let $statusNameInput = $('#status-name-input');
+
+        $('#status-create-button').click( ()=> {
+            let airportRequest = {
+                name: $statusNameInput.val(),
+            };
+
+            let id = $statusNameInput.attr('data-id');
+
+            if (id){
+                $.ajax({
+                    url: `http://localhost:8080/status?id=${id}`,
+                    type: 'put',
+                    contentType: 'application/json',
+                    data: JSON.stringify(airportRequest),
+                    success: function () {
+                        getStatus()
+                    },
+                    error: console.log
+                });
+            }
+            else {
+                $.ajax({
+                    url: 'http://localhost:8080/status',
+                    type: 'post',
+                    contentType: 'application/json',
+                    data: JSON.stringify(airportRequest),
+                    success: function () {
+                        getStatus()
+                    },
+                    error: console.log
+                });
+            }
+
+            $modal.modal('close');
+            if ($modal.modal('close')){
+                $statusNameInput.val('');
+                $statusNameInput.attr('data-id', '');
+            }
+        });
+
+        let getStatus = () => {
+            tableBody.html('');
+            $.ajax({
+                url: 'http://localhost:8080/status',
+                type: 'get',
+                success: function (response) {
+                    console.log(response);
+                    for (let status of response) {
+                        appendStatusToTable(status);
+                    }
+                    actionOnDeleteButtons();
+                    actionOnUpdateButtons();
+                },
+                error:console.log
+            });
+        };
+
+        let actionOnDeleteButtons = () => {
+            $('.delete-btn').click((e) => {
+                $.ajax({
+                    url: `http://localhost:8080/status?id=${$(e.target).attr('data-id')}`,
+                    type: 'delete',
+                    success: () => {
+                        $(e.target.parentElement.parentElement).hide();
+                    }
+                });
+            })
+        };
+
+        let actionOnUpdateButtons = ()=>{
+            $('.update-btn').click((e)=>{
+                let $btn = $(e.target);
+                let id = $btn.attr('data-id');
+                console.log(id);
+                $statusNameInput.val($btn.parent().siblings('.status-name').html());
+                $statusNameInput.attr('data-id', id);
+                $modal.modal('open');
+            })
+        };
+
+        let appendStatusToTable = (status) => {
+                tableBody.append(`
+                <tr>
+                    <td>${status.id}</td>
+                    <td class = "status-name">${status.name}</td>
+                    <td>
+                        <button data-id ="${status.id}" class="delete-btn btn">Delete</button>
+                        <button data-id ="${status.id}" class="update-btn btn">Update</button>
+                    </td>
+                </tr>
+                `);
+        };
+
+        getStatus();
+
+        $modal.modal({});
+    });
+</script>
+</body>
+</html>

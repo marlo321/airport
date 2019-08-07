@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Countries</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</head>
+<body>
+<h1>Countries</h1>
+
+<div id="create-country-modal" class="modal">
+    <div class="modal-content">
+        <input data-id="" id="country-name-input" type="text" placeholder="Name">
+    </div>
+    <div class="modal-footer">
+        <a href="#!" id="country-create-button" class="modal-close waves-effect waves-green btn-flat">Create</a>
+    </div>
+</div>
+
+<button data-target="create-country-modal" class="btn modal-trigger">Create country</button>
+
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+
+    <tbody id = "country">
+    </tbody>
+</table>
+
+<script>
+
+    $(document).ready(function(){
+        let $modal = $('.modal');
+        let tableBody = $('#country');
+
+        let $countryNameInput = $('#country-name-input');
+        $modal.modal();
+
+        $('#country-create-button').click(()=> {
+            let countryRequest = {
+                name: $countryNameInput.val()
+            };
+
+            let id = $countryNameInput.attr('data-id');
+
+            if (id){
+                $.ajax({
+                    url: `http://localhost:8080/country?id=${id}`,
+                    type: 'put',
+                    contentType: 'application/json',
+                    data: JSON.stringify(countryRequest),
+                    success: function () {
+                        getCountry();
+                    },
+                    error: logError
+                });
+            }
+            else {
+                $.ajax({
+                    url: 'http://localhost:8080/country',
+                    type: 'post',
+                    contentType: 'application/json',
+                    data: JSON.stringify(countryRequest),
+                    success: function () {
+                        getCountry();
+                    },
+                    error: logError
+                });
+            }
+            function logError(err) {
+                console.log(err)
+            }
+            $modal.modal('close');
+            $countryNameInput.val('');
+            $countryNameInput.attr('data-id', '');
+        });
+
+        let appendCountryToTable = (country) =>{
+            tableBody.append(`
+            <tr>
+                <td>${country.id}</td>
+                <td class = "country-name">${country.name}</td>
+                <td>
+                    <button data-id ="${country.id}" class="delete-btn btn">Delete</button>
+                    <button data-id ="${country.id}" class="update-btn btn">Update</button>
+                </td>
+            </tr>
+        `)
+        };
+
+        let actionOnDeleteButtons = ()=>{
+            $('.delete-btn').click((e)=>{
+                $.ajax({
+                    url: `http://localhost:8080/country?id=${$(e.target).attr('data-id')}`,
+                    type: 'delete',
+                    success: () => {
+                        console.log('deleted');
+                        $(e.target.parentElement.parentElement).hide();
+                    }
+                });
+            })
+        };
+
+        let actionOnUpdateButtons = ()=>{
+            $('.update-btn').click((e)=>{
+                let $btn = $(e.target);
+                let id = $btn.attr('data-id');
+                $countryNameInput.val($btn.parent().siblings('.country-name').html());
+                $countryNameInput.attr('data-id', id);
+                $modal.modal('open');
+            })
+        };
+
+        let getCountry = () =>{
+            tableBody.html('');
+            $.ajax({
+                url: 'http://localhost:8080/country',
+                type: 'get',
+                success: function (response) {
+                    for (let country of response){
+                        appendCountryToTable(country);
+                    }
+                    actionOnDeleteButtons();
+                    actionOnUpdateButtons();
+                }
+            });
+        };
+
+        getCountry();
+    });
+
+</script>
+</body>
+</html>
